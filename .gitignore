@@ -1,0 +1,18 @@
+# Local debugging and phone tooling
+/work/
+/outputs/
+/*.png
+/*.jpg
+/*.jpeg
+/*.xml
+/*.zip
+
+# Never publish unredacted Automate exports
+*.private.flo
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
