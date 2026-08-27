@@ -15,12 +15,13 @@
 flowchart TD
     A[短信到达 vivo 信息应用] --> B[系统发布通知]
     B --> C[Automate: Notification posted]
-    C --> D{通知内容非空?}
+    C --> D{非空、10 秒内且未发送过?}
     D -- 否 --> C
-    D -- 是 --> E[Failure catch]
-    E --> F[HTTP request to Bark]
-    F -- 成功 --> C
-    E -- 网络失败 --> C
+    D -- 是 --> E[记录 last_sent]
+    E --> F[Failure catch]
+    F --> G[HTTP request to Bark]
+    G -- 成功 --> C
+    F -- 网络失败 --> C
 ```
 
 这里使用通知监听而不是单纯依赖短信广播。测试设备上，中国移动验证码通知来自：
@@ -65,7 +66,7 @@ YOUR_BARK_DEVICE_KEY__
 主 Flow 的 HTTP URL 表达式为：
 
 ```text
-"https://api.day.app/YOUR_BARK_DEVICE_KEY__/" ++ urlEncode(notify_ticker || notify_text)
+"https://api.day.app/YOUR_BARK_DEVICE_KEY__/" ++ urlEncode(notify_text || notify_ticker)
 ```
 
 ### 3. 配置 Notification posted
@@ -76,16 +77,26 @@ YOUR_BARK_DEVICE_KEY__
 | --- | --- |
 | Proceed | When transition |
 | Package | `com.android.mms.service`（按实际手机修改） |
+| Exclude flags | `Group summary (Android 5+)` |
 | Posted package | `notify_package` |
 | Title | `notify_title` |
 | Message | `notify_text` |
 | Ticker text | `notify_ticker` |
+| When timestamp | `notify_when` |
 
-表达式判断：
+表达式判断会同时过滤空通知、历史通知和重复通知：
 
 ```text
-notify_ticker || notify_text
+(notify_text || notify_ticker) && (Now - notify_when) < 10 && (notify_text || notify_ticker) != last_sent
 ```
+
+在表达式的 YES 路径使用 `Variable set`：
+
+```text
+last_sent = notify_text || notify_ticker
+```
+
+OriginOS / Android 16 会在新短信到达时更新通知组，可能短时间内重新发布旧验证码，并额外发布一个没有正文的组汇总通知。`Group summary`、时间窗口和 `last_sent` 三层过滤用于避免旧验证码与 `empty message` 被推送。
 
 ### 4. vivo / OriginOS 后台设置
 
@@ -112,10 +123,12 @@ Stopped by failure
 连接方式：
 
 ```text
-Expression YES -> Failure catch IN
+Expression YES -> Variable set IN
+Variable set OK -> Failure catch IN
 Failure catch OK -> HTTP request IN
 HTTP request OK -> Notification posted IN
 Failure catch FAIL -> Notification posted IN
+Expression NO -> Notification posted IN
 ```
 
 因此一次推送失败只会丢失当前消息，不会让后续所有短信都停止转发。
@@ -148,4 +161,3 @@ OriginOS 重启后偶尔会保留“通知使用权”开关，但 Automate 的�
 ## License
 
 [MIT](LICENSE)
-

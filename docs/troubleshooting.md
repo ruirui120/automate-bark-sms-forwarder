@@ -9,7 +9,7 @@
 - Package 是否选中了实际发布验证码通知的应用；
 - vivo 信息应用可能使用 `com.android.mms.service`，而不是 `com.android.mms`；
 - 通知内容是否出现在 `Message` 或 `Ticker text` 输出变量中；
-- 表达式是否使用 `notify_ticker || notify_text`。
+- 表达式是否使用 `notify_text || notify_ticker`。
 
 ## 普通短信可以，平台验证码不可以
 
@@ -40,14 +40,38 @@
 不同通知使用的字段不同：有些正文在 `Message`，有些在 `Ticker text`。使用：
 
 ```text
-notify_ticker || notify_text
+notify_text || notify_ticker
 ```
 
 发送前用 `urlEncode(...)`，避免中文、空格、换行或特殊字符破坏 URL。
+
+## 新验证码到达时重放旧验证码或出现 `empty message`
+
+OriginOS / Android 16 可能为短信通知生成一个没有正文的组汇总通知，并在通知组更新时重新发布仍在通知栏中的旧短信。
+
+在 `Notification posted` 中配置：
+
+```text
+Exclude flags = Group summary (Android 5+)
+When timestamp = notify_when
+```
+
+再使用以下表达式，仅允许内容非空、发布时间距当前不足 10 秒且未发送过的通知：
+
+```text
+(notify_text || notify_ticker) && (Now - notify_when) < 10 && (notify_text || notify_ticker) != last_sent
+```
+
+表达式 YES 后增加 `Variable set`：
+
+```text
+last_sent = notify_text || notify_ticker
+```
+
+把 `Variable set` 的 OK 接到 `Failure catch`，表达式 NO 接回 `Notification posted`。如果设备发布通知明显较慢，可以把 10 秒适当调大，但时间窗口越大，重启后误转发旧通知的可能性也越高。
 
 ## VPN 开关是否影响
 
 Bark 不要求 VPN。只要安卓手机能够访问 `api.day.app` 就可以推送。
 
 某些代理使用 `198.18.0.0/15` Fake-IP；代理切换期间可能暂时连接失败。`Failure catch` 可以防止这种单次错误停止整个 Flow。
-
