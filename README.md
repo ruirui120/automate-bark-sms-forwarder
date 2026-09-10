@@ -139,6 +139,12 @@ OriginOS 重启后偶尔会保留“通知使用权”开关，但 Automate 的�
 
 为了避免覆盖其他应用的通知监听器，本仓库不提供绑定具体手机列表的成品 Flow。请按 [`docs/notification-repair.md`](docs/notification-repair.md) 创建安全版本。
 
+## Codex 长任务完成提醒
+
+仓库同时提供 [`scripts/codex-bark-notify.ps1`](scripts/codex-bark-notify.ps1)，可在 Codex 单轮任务结束时通过 Bark 通知 iPhone。默认仅在本轮耗时达到 3 分钟（`>= 180` 秒）时提醒，短任务不会打扰。
+
+安装、密钥保存方式与测试方法见 [`docs/codex-bark-notifications.md`](docs/codex-bark-notifications.md)。Bark Device Key 仍只保存在本机 DPAPI 加密文件中，不会写进脚本或 Git 仓库。
+
 ## 故障排查
 
 见 [`docs/troubleshooting.md`](docs/troubleshooting.md)。优先检查 Automate 常驻通知中的 fiber 数量：正常情况下应同时运行主 Flow 和自动修复 Flow。
