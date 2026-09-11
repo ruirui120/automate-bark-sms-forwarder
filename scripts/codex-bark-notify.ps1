@@ -50,7 +50,7 @@ function Get-CodexTaskName {
     }
 
     $taskName = ""
-    foreach ($line in Get-Content -LiteralPath $indexPath) {
+    foreach ($line in Get-Content -LiteralPath $indexPath -Encoding UTF8) {
         try {
             $entry = $line | ConvertFrom-Json
             if ([string]$entry.id -eq $ThreadId -and -not [string]::IsNullOrWhiteSpace([string]$entry.thread_name)) {

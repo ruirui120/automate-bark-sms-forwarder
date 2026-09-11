@@ -60,14 +60,28 @@ try {
         }
     } | ConvertTo-Json -Compress
     Set-Content -LiteralPath $fixturePath -Encoding ASCII -Value $fixtureLine
+    $expectedTaskName = '"\u4e2d\u6587\u4efb\u52a1\u540d\u79f0"' | ConvertFrom-Json
+    $indexLine = @{
+        id = $fixtureThread
+        thread_name = $expectedTaskName
+        updated_at = "2026-09-10T00:00:00Z"
+    } | ConvertTo-Json -Compress
+    $indexPath = Join-Path $testProfile ".codex\session_index.jsonl"
+    $utf8WithoutBom = New-Object Text.UTF8Encoding($false)
+    [IO.File]::WriteAllText($indexPath, $indexLine, $utf8WithoutBom)
     $env:USERPROFILE = $testProfile
     $fixturePayload = @{
         type = "agent-turn-complete"
         'thread-id' = $fixtureThread
         'turn-id' = $fixtureTurn
     } | ConvertTo-Json -Compress
-    if ([string]::IsNullOrWhiteSpace((Invoke-DryRun -DurationMs -1 -EventPayload $fixturePayload))) {
+    $fixtureOutput = Invoke-DryRun -DurationMs -1 -EventPayload $fixturePayload
+    if ([string]::IsNullOrWhiteSpace($fixtureOutput)) {
         throw "The hook must read duration_ms from the matching local rollout."
+    }
+    $fixtureBody = ($fixtureOutput | ConvertFrom-Json).body
+    if ($fixtureBody -notmatch [regex]::Escape($expectedTaskName)) {
+        throw "The hook must preserve a UTF-8 task name from session_index.jsonl."
     }
 
     $otherEvent = @{ type = "approval-requested" } | ConvertTo-Json -Compress
